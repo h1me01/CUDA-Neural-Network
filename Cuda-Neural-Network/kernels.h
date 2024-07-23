@@ -116,21 +116,23 @@ void updateKernel(
 	float* biases_grad, 
 	float lr, int input_size, int layer_size
 ) {
-	int neuron = blockIdx.x;
-	int i = threadIdx.x;
+	int layer_neuron = blockIdx.x;
+	int input_neuron = threadIdx.x;
 
-	if (neuron >= layer_size || i >= input_size)
+	if (layer_neuron >= layer_size || input_neuron >= input_size)
 		return;
 
 	// update weights
-	int weight_idx = MI(neuron, i, input_size);
+	int weight_idx = MI(layer_neuron, input_neuron, input_size);
 	weights[weight_idx] -= lr * weights_grad[weight_idx];
 	weights_grad[weight_idx] = 0.0f;
 
-	// update biases
-	if (i == 0) {
-		biases[neuron] -= lr * biases_grad[neuron];
-		biases_grad[neuron] = 0.0f;
+	// update biases, we only want to update the bias once for each neuron
+	// since each neuron has input_size threads by adding input_neuron == 0 (can be any number between 0 and input_size - 1)
+	// we can also update the bias once by one of the threads 
+	if (input_neuron == 0) {
+		biases[layer_neuron] -= lr * biases_grad[layer_neuron];
+		biases_grad[layer_neuron] = 0.0f;
 	}
 }
 
@@ -160,7 +162,9 @@ void adamKernel(
 	weights[weight_idx] -= weights_delta;
 	weights_grad[weight_idx] = 0.0f;
 
-	// update biases
+	// update biases, we only want to update the bias once for each neuron
+	// since each neuron has input_size threads by adding input_neuron == 0 (can be any number between 0 and input_size - 1)
+	// we can also update the bias once by one of the threads 
 	if (i == 0) {
 		m_b[neuron] = beta1 * m_b[neuron] + (1.0f - beta1) * biases_grad[neuron];
 		v_b[neuron] = beta2 * v_b[neuron] + (1.0f - beta2) * biases_grad[neuron] * biases_grad[neuron];
