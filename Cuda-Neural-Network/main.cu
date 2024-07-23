@@ -1,4 +1,5 @@
 ﻿#include "network_gpu.h"
+#include "network.h"
 
 const string DATA_PATH = "C:/Users/semio/Downloads/chess_data1.bin";
 const int EPOCHS = 30;
@@ -21,7 +22,7 @@ vector<float> TEST_POSITIONS_EVAL = {
 int main()
 {
     // LOAD AND NORMALIZE DATA
-    vector<NetInput> DATA = getNetData(DATA_PATH, 100000);
+    vector<NetInput> DATA = getNetData(DATA_PATH, 10000);
 
     vector<float> targets;
     for (auto& i : DATA) {
@@ -34,9 +35,17 @@ int main()
     }
 
     // TRAIN NETWORK
-    Network_GPU net("");
-    net.train(DATA, EPOCHS);
 
+    if (false) {
+        Network net1;
+		net1.train(DATA, EPOCHS);
+    }
+    else {
+        Network_GPU net("");
+        net.train(DATA, EPOCHS);
+    }
+    
+    /*
     // TEST NEURAL NETWORK
     for (int i = 0; i < TEST_POSITIONS.size(); ++i) {
         float prediction = net.evaluatePosition(TEST_POSITIONS[i]);
@@ -44,7 +53,7 @@ int main()
         cout << "Prediction: " << prediction << endl;
         cout << "Target: " << TEST_POSITIONS_EVAL[i] << endl;
         cout << "--------------------------------------" << endl;
-    }
+    }*/
 
     return 0;
 }

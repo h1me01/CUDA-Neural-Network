@@ -77,13 +77,20 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="main.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dataset.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="activation.h" />
     <ClInclude Include="dataset.h" />
+    <ClInclude Include="helper.h" />
+    <ClInclude Include="kernels.h" />
+    <ClInclude Include="layer.h" />
+    <ClInclude Include="misc.h" />
+    <ClInclude Include="mse.h" />
+    <ClInclude Include="network.h" />
     <ClInclude Include="network_gpu.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
