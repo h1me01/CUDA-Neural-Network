@@ -12,19 +12,20 @@ int mirrorVertically(int sq) {
     return sq ^ 56;
 }
 
-int index(int psq, char p, Color view) {
-    if (view != WHITE)
+int index(int psq, char p) {
+    Color pc = isupper(p) ? WHITE : BLACK;
+
+    if (pc != WHITE)
         psq = mirrorVertically(psq);
 
-    Color pc = isupper(p) ? WHITE : BLACK;
-    return psq + 64 * pieceIndex(p) + (pc != view) * 64 * 6;
+    return psq + 64 * pieceIndex(p) + pc * 64 * 6;
 }
 
-int index(int psq, int pt, Color pc, Color view) {
-    if (view != WHITE)
+int index(int psq, int pt, Color pc) {
+    if (pc != WHITE)
         psq = mirrorVertically(psq);
 
-    return psq + 64 * pt + (pc != view) * 64 * 6;
+    return psq + 64 * pt + pc * 64 * 6;
 }
 
 const int DEBRUIJN64[64] = {
