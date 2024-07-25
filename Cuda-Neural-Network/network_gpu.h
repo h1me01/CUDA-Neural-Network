@@ -87,7 +87,7 @@ public:
 	}
 
 	void feed(vector<NetInput>& batchInput) {
-		// allocate input on host and prepare sparse input
+		// prepare sparse input
 		for (int batch = 0; batch < BATCH_SIZE; ++batch) {
 			float* currentInput = getSparseInput(batchInput[batch]);
 

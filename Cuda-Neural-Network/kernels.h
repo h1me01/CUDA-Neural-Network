@@ -129,7 +129,7 @@ void updateKernel(
 
 	// update biases, we only want to update the bias once for each neuron
 	// since each neuron has input_size threads by adding input_neuron == 0 (can be any number between 0 and input_size - 1)
-	// we can also update the bias once by one of the threads 
+	// we update it only once by one of the threads
 	if (input_neuron == 0) {
 		biases[layer_neuron] -= lr * biases_grad[layer_neuron];
 		biases_grad[layer_neuron] = 0.0f;
@@ -164,7 +164,7 @@ void adamKernel(
 
 	// update biases, we only want to update the bias once for each neuron
 	// since each neuron has input_size threads by adding input_neuron == 0 (can be any number between 0 and input_size - 1)
-	// we can also update the bias once by one of the threads 
+	// we update it only once by one of the threads
 	if (i == 0) {
 		m_b[neuron] = beta1 * m_b[neuron] + (1.0f - beta1) * biases_grad[neuron];
 		v_b[neuron] = beta2 * v_b[neuron] + (1.0f - beta2) * biases_grad[neuron] * biases_grad[neuron];
