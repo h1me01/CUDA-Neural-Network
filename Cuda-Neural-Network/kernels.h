@@ -8,16 +8,8 @@
 #include "activation.h"
 #include "mse.h"
 
-// helper to let me understand the dimensions of the grid, block and thread
-__global__ 
-void printDimensionsKernel() {
-	printf("Thread dimensions: (%d, %d, %d)\n", threadIdx.x, threadIdx.y, threadIdx.z);
-	printf("Block dimensions: (%d, %d, %d)\n", blockDim.x, blockDim.y, blockDim.z);
-	printf("Grid dimensions: (%d, %d, %d)\n", gridDim.x, gridDim.y, gridDim.z);
-}
 
-__global__
-void feedKernel(
+__global__ void feedKernel(
 	float* batch_input, 
 	float* weights, 
 	float* biases, 
@@ -49,8 +41,7 @@ void feedKernel(
 	activations[MI(batch, neuron, layer_size)] = activation;
 }
 
-__global__
-void backpropOutputKernel(
+__global__ void backpropOutputKernel(
 	float* targets, 
 	float* predictions, 
 	float* batch_input, 
@@ -79,8 +70,7 @@ void backpropOutputKernel(
 	atomicAdd(&biases_grad[neuron], deltaOutput);
 }
 
-__global__
-void backpropHiddenKernel(
+__global__ void backpropHiddenKernel(
 	float* batch_input, 
 	float* weighted_inputs, 
 	float* weights_grad, 
@@ -108,8 +98,7 @@ void backpropHiddenKernel(
 	atomicAdd(&biases_grad[neuron], delta);
 }
 
-__global__
-void updateKernel(
+__global__ void updateKernel(
 	float* weights, 
 	float* biases, 
 	float* weights_grad, 
@@ -136,8 +125,7 @@ void updateKernel(
 	}
 }
 
-__global__ 
-void adamKernel(
+__global__ void adamKernel(
 	float* weights,
 	float* biases,
 	float* weights_grad,

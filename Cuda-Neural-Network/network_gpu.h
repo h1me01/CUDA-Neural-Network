@@ -5,8 +5,6 @@
 #include "misc.h"
 #include <curand_kernel.h>
 
-#define THREADS_PER_BLOCK 256
-
 /*
  * HYPER PARAMETERS
  */
@@ -103,7 +101,7 @@ public:
 		copyToDev(hidden_layer.inputs, h_hidden_input, BATCH_SIZE * INPUT_SIZE);
 
 		// forward pass hidden layer
-		feedKernel << <BATCH_SIZE, THREADS_PER_BLOCK >> > (
+		feedKernel << <BATCH_SIZE, HIDDEN_SIZE >> > (
 			hidden_layer.inputs,
 			hidden_layer.weights,
 			hidden_layer.biases,
@@ -113,7 +111,7 @@ public:
 		checkKernelErrors("feedKernel - Hidden Layer");
 
 		// forward pass output layer
-		feedKernel << <BATCH_SIZE, THREADS_PER_BLOCK >> > (
+		feedKernel << <BATCH_SIZE, OUTPUT_SIZE >> > (
 			hidden_layer.activations, // hidden activations is input of output layer 
 			output_layer.weights,
 			output_layer.biases,
@@ -133,7 +131,7 @@ public:
 		copyToDev(output_layer.targets, targets.data(), BATCH_SIZE);
 
 		// backward pass output layer
-		backpropOutputKernel << <BATCH_SIZE, THREADS_PER_BLOCK >> > (
+		backpropOutputKernel << <BATCH_SIZE, OUTPUT_SIZE >> > (
 			output_layer.targets,
 			output_layer.activations,
 			hidden_layer.activations, // hidden activations is input of output layer
@@ -145,7 +143,7 @@ public:
 		checkKernelErrors("backpropOutputKernel");
 
 		// backward pass hidden layer
-		backpropHiddenKernel << <BATCH_SIZE, THREADS_PER_BLOCK >> > (
+		backpropHiddenKernel << <BATCH_SIZE, HIDDEN_SIZE >> > (
 			hidden_layer.inputs,
 			hidden_layer.weighted_inputs,
 			hidden_layer.weights_grad,
