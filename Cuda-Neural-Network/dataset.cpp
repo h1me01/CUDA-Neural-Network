@@ -3,7 +3,7 @@
 /*
  * HELPER FUNCTIONS
  */
-int pieceIndex(char c) {
+int pieceType(char c) {
     const string pieces = "pnbrqk";
     return pieces.find(tolower(c));
 }
@@ -12,20 +12,21 @@ int mirrorVertically(int sq) {
     return sq ^ 56;
 }
 
-int index(int psq, char p) {
+int index(int psq, char p, Color view) {
     Color pc = isupper(p) ? WHITE : BLACK;
-
-    if (pc != WHITE)
+    if (view != WHITE) {
         psq = mirrorVertically(psq);
+    }
 
-    return psq + 64 * pieceIndex(p) + pc * 64 * 6;
+    return psq + pieceType(p) * 64 + (pc != view) * 64 * 6;
 }
 
-int index(int psq, int pt, Color pc) {
-    if (pc != WHITE)
+int index(int psq, int pt, Color pc, Color view) {
+    if (view != WHITE) {
         psq = mirrorVertically(psq);
+    }
 
-    return psq + 64 * pt + pc * 64 * 6;
+    return psq + pt * 64 + (pc != view) * 64 * 6;
 }
 
 const int DEBRUIJN64[64] = {

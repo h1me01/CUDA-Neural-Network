@@ -10,16 +10,18 @@ namespace Tools {
 
 // he init for weights 
 void heInit(float* array, int numFeatures, int numNeurons) {
-	for (int i = 0; i < numNeurons * numFeatures; ++i) {
-		normal_distribution<float> dist(0, sqrt(2.0f / numFeatures));
+	normal_distribution<float> dist(0, sqrt(2.0f / numFeatures));
 
+	for (int i = 0; i < numNeurons * numFeatures; ++i) {
 		array[i] = dist(Tools::gen);
 	}
 }
 
 void shuffleData(vector<NetInput>& data) {
+	uniform_int_distribution<size_t> dis;
+
 	for (size_t i = data.size() - 1; i > 0; --i) {
-		uniform_int_distribution<size_t> dis(0, i);
+		dis.param(uniform_int_distribution<size_t>::param_type(0, i)); 
 		size_t j = dis(Tools::gen);
 		swap(data[i], data[j]);
 	}

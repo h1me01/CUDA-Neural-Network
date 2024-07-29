@@ -68,7 +68,7 @@ void backpropOutputKernel(
 		return;
 
 	// calculate delta for output layer
-	float deltaOutput = getOutputLoss(targets[batch], predictions[batch]) * sigmoidDer(weighted_inputs[batch]);
+	float deltaOutput = getMSE(targets[batch], predictions[batch]) * sigmoidDer(weighted_inputs[batch]);
 	deltas[batch] = deltaOutput;
 
 	// update gradients
@@ -147,14 +147,15 @@ void adamKernel(
 	float beta1, float beta2, float eps, float lr,
 	int input_size, int layer_size
 ) {
-	int neuron = blockIdx.x;
-	int i = threadIdx.x;
-	int weight_idx = MI(neuron, i, input_size);
+	int layer_neuron = blockIdx.x;
+	int input_neuron = threadIdx.x;
 
-	if (neuron >= layer_size || i >= input_size)
+	if (layer_neuron >= layer_size || input_neuron >= input_size)
 		return;
 
 	// update weights
+	int weight_idx = MI(layer_neuron, input_neuron, input_size);
+
 	m_w[weight_idx] = beta1 * m_w[weight_idx] + (1.0f - beta1) * weights_grad[weight_idx];
 	v_w[weight_idx] = beta2 * v_w[weight_idx] + (1.0f - beta2) * weights_grad[weight_idx] * weights_grad[weight_idx];
 
@@ -165,12 +166,12 @@ void adamKernel(
 	// update biases, we only want to update the bias once for each neuron
 	// since each neuron has input_size threads by adding input_neuron == 0 (can be any number between 0 and input_size - 1)
 	// we update it only once by one of the threads
-	if (i == 0) {
-		m_b[neuron] = beta1 * m_b[neuron] + (1.0f - beta1) * biases_grad[neuron];
-		v_b[neuron] = beta2 * v_b[neuron] + (1.0f - beta2) * biases_grad[neuron] * biases_grad[neuron];
+	if (input_neuron == 0) {
+		m_b[layer_neuron] = beta1 * m_b[layer_neuron] + (1.0f - beta1) * biases_grad[layer_neuron];
+		v_b[layer_neuron] = beta2 * v_b[layer_neuron] + (1.0f - beta2) * biases_grad[layer_neuron] * biases_grad[layer_neuron];
 
-		float biases_delta = lr * m_b[neuron] / (sqrtf(v_b[neuron]) + eps);
-		biases[neuron] -= biases_delta;
-		biases_grad[neuron] = 0.0f;
+		float biases_delta = lr * m_b[layer_neuron] / (sqrtf(v_b[layer_neuron]) + eps);
+		biases[layer_neuron] -= biases_delta;
+		biases_grad[layer_neuron] = 0.0f;
 	}
 }

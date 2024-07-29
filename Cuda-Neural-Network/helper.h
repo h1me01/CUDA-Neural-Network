@@ -30,7 +30,6 @@ void checkKernelErrors(const char* kernelName) {
 	}
 }
 
-
 void allocDevMem(float** d_a, size_t n) {
 	HANDLE_ERROR(cudaMalloc((void**)d_a, n * sizeof(float)));
 }
@@ -47,6 +46,27 @@ void copyFromDev(float* h_a, float* d_a, size_t n) {
 	HANDLE_ERROR(cudaMemcpy(h_a, d_a, n * sizeof(float), cudaMemcpyDeviceToHost));
 }
 
+__global__ void setKernel(float* d_a, float val, size_t n) {
+	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < n) {
+		d_a[idx] = val;
+	}
+}
+
 void setDevMem(float* d_a, float val, size_t n) {
-	HANDLE_ERROR(cudaMemset(d_a, val, n * sizeof(float)));
+	size_t blockSize = 256; 
+	size_t numBlocks = (n + blockSize - 1) / blockSize;
+	setKernel << <numBlocks, blockSize >> > (d_a, val, n);
+	checkKernelErrors("setKernel");
+
+	/*
+	float* h_a = (float*)malloc(n * sizeof(float));
+	copyFromDev(h_a, d_a, n);
+
+	for(int i = 0; i < n; ++i) {
+		if (h_a[i] != val) {
+			printf("Error setting memory to %f\n", val);
+			exit(EXIT_FAILURE);
+		}
+	}*/
 }

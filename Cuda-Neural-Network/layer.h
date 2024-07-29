@@ -9,16 +9,16 @@ public:
 	float* weights, * weights_grad, * m_weights, * v_weights;
 	float* biases, * biases_grad, * m_biases, * v_biases;
 
-	Layer(int batch_size, int num_features, int layer_size) {
+	Layer(int batch_size, int input_size, int layer_size) {
 		allocDevMem(&targets, batch_size);
-		allocDevMem(&inputs, batch_size * num_features);
+		allocDevMem(&inputs, batch_size * input_size);
 
 		size_t size = batch_size * layer_size;
 		allocDevMem(&activations, size);
 		allocDevMem(&weighted_inputs, size);
 		allocDevMem(&deltas, size);
 
-		size = num_features * layer_size;
+		size = input_size * layer_size;
 		allocDevMem(&weights, size);
 		allocDevMem(&weights_grad, size);
 		allocDevMem(&m_weights, size);
