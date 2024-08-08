@@ -9,10 +9,10 @@ namespace Tools {
 } // namespace Tools
 
 // he init for weights 
-void heInit(float* array, int numFeatures, int numNeurons) {
-	normal_distribution<float> dist(0, sqrt(2.0f / numFeatures));
+void heInit(float* array, int input_size, int layer_size) {
+	normal_distribution<float> dist(0, sqrt(2.0f / input_size));
 
-	for (int i = 0; i < numNeurons * numFeatures; ++i) {
+	for (int i = 0; i < layer_size * input_size; ++i) {
 		array[i] = dist(Tools::gen);
 	}
 }

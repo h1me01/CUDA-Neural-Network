@@ -6,6 +6,11 @@
 #include <curand_kernel.h>
 
 /*
+	TODO:
+	- improve code quality!!!
+*/
+
+/*
  * HYPER PARAMETERS
  */
 constexpr int INPUT_SIZE = 768;
@@ -18,7 +23,7 @@ constexpr int BATCH_SIZE = 128;
 // Adam Parameters
 constexpr float BETA1 = 0.95f;
 constexpr float BETA2 = 0.999f;
-constexpr float EPSILON = 1e-8f;
+constexpr float EPSILON = 1e-1f;
 
 /*
  * NETWORK CLASS
@@ -32,7 +37,7 @@ public:
 		h_hidden_input = new float[BATCH_SIZE * INPUT_SIZE];
 
 		h_hidden_weights = new float[HIDDEN_SIZE * INPUT_SIZE];
-		h_output_weights = new float[HIDDEN_SIZE];
+		h_output_weights = new float[OUTPUT_SIZE * HIDDEN_SIZE];
 
 		h_hidden_biases = new float[HIDDEN_SIZE];
 		h_output_biases = new float[OUTPUT_SIZE];
@@ -45,8 +50,9 @@ public:
 		copyToDev(hidden_layer.weights, h_hidden_weights, HIDDEN_SIZE * INPUT_SIZE);
 		copyToDev(output_layer.weights, h_output_weights, OUTPUT_SIZE * HIDDEN_SIZE);
 
-		if (fileName != "")
+		if (fileName != "") {
 			loadWeights(fileName);
+		}
 	}
 
 	~Network_GPU() {
@@ -82,7 +88,7 @@ public:
 		// don't forget to deallocate input
 		delete[] input;
 
-		return 1.0f / (1.0f + expf(-SIGMOID_SCALAR * prediction)); // sigmoid activation
+		return 1.0f / (1.0f + expf(-(2.5f / 400.0f) * prediction)); // sigmoid activation
 	}
 
 	void feed(vector<NetInput>& batchInput) {
@@ -154,56 +160,60 @@ public:
 		checkKernelErrors("backpropHiddenKernel");
 	}
 
-	void update(bool use_adam) {
-		if (use_adam) {
-			// update output layer
-			adamKernel << <OUTPUT_SIZE, HIDDEN_SIZE >> > (
-				output_layer.weights,
-				output_layer.biases,
-				output_layer.weights_grad,
-				output_layer.biases_grad,
-				output_layer.m_weights, output_layer.v_weights,
-				output_layer.m_biases, output_layer.v_biases,
-				BETA1, BETA2, EPSILON, LR,
-				HIDDEN_SIZE, OUTPUT_SIZE);
-			checkKernelErrors("Adam - Output Layer");
+	void update() {
+		// update output layer
+		adamKernel << <OUTPUT_SIZE, HIDDEN_SIZE >> > (
+			output_layer.weights,
+			output_layer.biases,
+			output_layer.weights_grad,
+			output_layer.biases_grad,
+			output_layer.m_weights, output_layer.v_weights,
+			output_layer.m_biases, output_layer.v_biases,
+			BETA1, BETA2, EPSILON, LR,
+			HIDDEN_SIZE, OUTPUT_SIZE);
+		checkKernelErrors("Adam - Output Layer");
 
-			// update hidden layer
-			adamKernel << <HIDDEN_SIZE, INPUT_SIZE >> > (
-				hidden_layer.weights,
-				hidden_layer.biases,
-				hidden_layer.weights_grad,
-				hidden_layer.biases_grad,
-				hidden_layer.m_weights, hidden_layer.v_weights,
-				hidden_layer.m_biases, hidden_layer.v_biases,
-				BETA1, BETA2, EPSILON, LR,
-				INPUT_SIZE, HIDDEN_SIZE);
-			checkKernelErrors("Adam - Hidden Layer");
-		}
-		else {
-			// update output layer
-			updateKernel << <OUTPUT_SIZE, HIDDEN_SIZE >> > (
-				output_layer.weights,
-				output_layer.biases,
-				output_layer.weights_grad,
-				output_layer.biases_grad,
-				LR, HIDDEN_SIZE, OUTPUT_SIZE);
-			checkKernelErrors("Update - Output Layer");
-
-			// update hidden layer
-			updateKernel << <HIDDEN_SIZE, INPUT_SIZE >> > (
-				hidden_layer.weights,
-				hidden_layer.biases,
-				hidden_layer.weights_grad,
-				hidden_layer.biases_grad,
-				LR, INPUT_SIZE, HIDDEN_SIZE);
-			checkKernelErrors("Update - Hidden Layer");
-		}
+		// update hidden layer
+		adamKernel << <HIDDEN_SIZE, INPUT_SIZE >> > (
+			hidden_layer.weights,
+			hidden_layer.biases,
+			hidden_layer.weights_grad,
+			hidden_layer.biases_grad,
+			hidden_layer.m_weights, hidden_layer.v_weights,
+			hidden_layer.m_biases, hidden_layer.v_biases,
+			BETA1, BETA2, EPSILON, LR,
+			INPUT_SIZE, HIDDEN_SIZE);
+		checkKernelErrors("Adam - Hidden Layer");
 	}
 
-	void saveWeights(const string fileName) {
+	void saveWeights(const string& fileName) {
 		copyWeightsToHost();
 
+		// Allocate memory for momentums on host
+
+		// Hidden layer
+		float* hidden_m_weights = new float[HIDDEN_SIZE * INPUT_SIZE];
+		float* hidden_v_weights = new float[HIDDEN_SIZE * INPUT_SIZE];
+		float* hidden_m_biases = new float[HIDDEN_SIZE];
+		float* hidden_v_biases = new float[HIDDEN_SIZE];
+
+		copyFromDev(hidden_m_weights, hidden_layer.m_weights, HIDDEN_SIZE * INPUT_SIZE);
+		copyFromDev(hidden_v_weights, hidden_layer.v_weights, HIDDEN_SIZE * INPUT_SIZE);
+		copyFromDev(hidden_m_biases, hidden_layer.m_biases, HIDDEN_SIZE);
+		copyFromDev(hidden_v_biases, hidden_layer.v_biases, HIDDEN_SIZE);
+
+		// Output layer
+		float* output_m_weights = new float[HIDDEN_SIZE];
+		float* output_v_weights = new float[HIDDEN_SIZE];
+		float* output_m_biases = new float[OUTPUT_SIZE];
+		float* output_v_biases = new float[OUTPUT_SIZE];
+
+		copyFromDev(output_m_weights, output_layer.m_weights, HIDDEN_SIZE);
+		copyFromDev(output_v_weights, output_layer.v_weights, HIDDEN_SIZE);
+		copyFromDev(output_m_biases, output_layer.m_biases, OUTPUT_SIZE);
+		copyFromDev(output_v_biases, output_layer.v_biases, OUTPUT_SIZE);
+
+		// Save to file
 		ofstream file(fileName, ios::out | ios::binary);
 		if (file.is_open()) {
 			file.write((char*)h_hidden_weights, HIDDEN_SIZE * INPUT_SIZE * sizeof(float));
@@ -211,19 +221,54 @@ public:
 			file.write((char*)h_hidden_biases, HIDDEN_SIZE * sizeof(float));
 			file.write((char*)h_output_biases, OUTPUT_SIZE * sizeof(float));
 
+			file.write((char*)hidden_m_weights, HIDDEN_SIZE * INPUT_SIZE * sizeof(float));
+			file.write((char*)hidden_v_weights, HIDDEN_SIZE * INPUT_SIZE * sizeof(float));
+			file.write((char*)hidden_m_biases, HIDDEN_SIZE * sizeof(float));
+			file.write((char*)hidden_v_biases, HIDDEN_SIZE * sizeof(float));
+
+			file.write((char*)output_m_weights, HIDDEN_SIZE * sizeof(float));
+			file.write((char*)output_v_weights, HIDDEN_SIZE * sizeof(float));
+			file.write((char*)output_m_biases, OUTPUT_SIZE * sizeof(float));
+			file.write((char*)output_v_biases, OUTPUT_SIZE * sizeof(float));
+
 			file.close();
 		}
 		else {
 			cout << "Error: Could not open file for writing!" << endl;
 		}
+
+		// Free host memory
+		delete[] hidden_m_weights;
+		delete[] hidden_v_weights;
+		delete[] hidden_m_biases;
+		delete[] hidden_v_biases;
+
+		delete[] output_m_weights;
+		delete[] output_v_weights;
+		delete[] output_m_biases;
+		delete[] output_v_biases;
 	}
 
-	void loadWeights(const string fileName) {
+	void loadWeights(const string& fileName) {
 		ifstream fileCheck(fileName);
 		if (!fileCheck.good()) {
 			cout << "Error: File does not exist!" << endl;
 			exit(1);
 		}
+
+		// Allocate memory for momentums on host
+
+		// Hidden layer
+		float* hidden_m_weights = new float[HIDDEN_SIZE * INPUT_SIZE];
+		float* hidden_v_weights = new float[HIDDEN_SIZE * INPUT_SIZE];
+		float* hidden_m_biases = new float[HIDDEN_SIZE];
+		float* hidden_v_biases = new float[HIDDEN_SIZE];
+
+		// Output layer
+		float* output_m_weights = new float[HIDDEN_SIZE];
+		float* output_v_weights = new float[HIDDEN_SIZE];
+		float* output_m_biases = new float[OUTPUT_SIZE];
+		float* output_v_biases = new float[OUTPUT_SIZE];
 
 		ifstream file(fileName, ios::in | ios::binary);
 		if (file.is_open()) {
@@ -232,13 +277,48 @@ public:
 			file.read((char*)h_hidden_biases, HIDDEN_SIZE * sizeof(float));
 			file.read((char*)h_output_biases, OUTPUT_SIZE * sizeof(float));
 
+			file.read((char*)hidden_m_weights, HIDDEN_SIZE * INPUT_SIZE * sizeof(float));
+			file.read((char*)hidden_v_weights, HIDDEN_SIZE * INPUT_SIZE * sizeof(float));
+			file.read((char*)hidden_m_biases, HIDDEN_SIZE * sizeof(float));
+			file.read((char*)hidden_v_biases, HIDDEN_SIZE * sizeof(float));
+
+			file.read((char*)output_m_weights, HIDDEN_SIZE * sizeof(float));
+			file.read((char*)output_v_weights, HIDDEN_SIZE * sizeof(float));
+			file.read((char*)output_m_biases, OUTPUT_SIZE * sizeof(float));
+			file.read((char*)output_v_biases, OUTPUT_SIZE * sizeof(float));
+
 			file.close();
 		}
 		else {
 			cout << "Error: Could not open file for reading!" << endl;
 		}
 
+		// Copy momentums to device
+
+		// Hidden layer
+		copyToDev(hidden_layer.m_weights, hidden_m_weights, HIDDEN_SIZE * INPUT_SIZE);
+		copyToDev(hidden_layer.v_weights, hidden_v_weights, HIDDEN_SIZE * INPUT_SIZE);
+		copyToDev(hidden_layer.m_biases, hidden_m_biases, HIDDEN_SIZE);
+		copyToDev(hidden_layer.v_biases, hidden_v_biases, HIDDEN_SIZE);
+
+		// Output layer
+		copyToDev(output_layer.m_weights, output_m_weights, HIDDEN_SIZE);
+		copyToDev(output_layer.v_weights, output_v_weights, HIDDEN_SIZE);
+		copyToDev(output_layer.m_biases, output_m_biases, OUTPUT_SIZE);
+		copyToDev(output_layer.v_biases, output_v_biases, OUTPUT_SIZE);
+
 		copyWeightsToDevice();
+
+		// Free host memory
+		delete[] hidden_m_weights;
+		delete[] hidden_v_weights;
+		delete[] hidden_m_biases;
+		delete[] hidden_v_biases;
+
+		delete[] output_m_weights;
+		delete[] output_v_weights;
+		delete[] output_m_biases;
+		delete[] output_v_biases;
 	}
 
 	float evaluatePosition(string& fen) {
@@ -264,7 +344,7 @@ public:
 		// calculate the number of batches
 		const int numBatches = trainingSize / BATCH_SIZE;
 
-		cout << "Training Network with " << trainingSize << " Positions!\n" << endl;
+		cout << "Training Network with " << trainingSize << " Positions and " << valSize << " Validation Positions!\n" << endl;
 
 		vector<NetInput> valData(data.begin() + trainingSize, data.end());
 		data.resize(trainingSize);
@@ -276,32 +356,25 @@ public:
 
 		for (int epoch = 1; epoch <= epochs; ++epoch)
 		{
-			for (int batch = 0; batch < numBatches; ++batch)
-			{
+			for (int batch = 0; batch < numBatches; ++batch) {
 				int startIdx = batch * BATCH_SIZE;
 				int endIdx = min((batch + 1) * BATCH_SIZE, trainingSize);
 
-				// feed forward
 				vector<NetInput> batchData(data.begin() + startIdx, data.begin() + endIdx);
-				feed(batchData);
 
-				// feed backward
-				vector<float> batchTargets;
-				for (auto& d : batchData) {
-					batchTargets.push_back(d.target);
+				vector<float> batchTargets(BATCH_SIZE);
+				for (size_t i = 0; i < batchData.size(); ++i) {
+					batchTargets[i] = batchData[i].target;
 				}
-				backprop(batchTargets);
 
-				// update weights and biases
-				update(true); 
+				feed(batchData);
+				backprop(batchTargets);
+				update();
 			}
 
 			if (epoch % 3 == 0) {
 				cout << setw(6) << epoch << " | " << getLoss(valData) << endl;
-			}
-
-			if (epoch % 5 == 0) {
-				//saveWeights(getWeightsFilePath(epoch));
+				saveWeights(getWeightsFilePath(epoch));
 			}
 		}
 
